@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#f6f8fb" />
   <meta name="description" content="ログイン不要、ブラウザだけで使えるシンプルなTodoアプリ。" />
-  <title>My Todo — Todo & Bucket List</title>
+  <title>My Todo — Todo & Bucket List (v0.4)</title>
   <style>
     :root {
       color-scheme: light;
@@ -71,6 +71,8 @@
     .list-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
     .list-heading h2 { margin: 0; font-size: 18px; letter-spacing: -.025em; }
     .date-label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+    .list-create { flex: 0 0 auto; padding: 6px 12px; min-height: 36px; white-space: nowrap; }
+    .list-heading-tools { display: flex; align-items: center; gap: 10px; }
     .search-row { display: flex; gap: 10px; margin-bottom: 15px; }
     .search-wrap { flex: 1; min-width: 0; position: relative; }
     .search-wrap input { padding-left: 36px; }
@@ -112,7 +114,16 @@
     .footnote { text-align: center; font-size: 11px; color: #8290a4; margin-top: 24px; }
     #toast { z-index: 10; position: fixed; left: 50%; bottom: max(20px, env(safe-area-inset-bottom)); transform: translate(-50%, 20px); opacity: 0; pointer-events: none; max-width: min(90vw, 450px); background: #223552; color: #fff; padding: 12px 19px; border-radius: 11px; font-size: 13px; box-shadow: 0 9px 30px #17243a36; transition: opacity .22s, transform .22s; text-align: center; }
     #toast.show { opacity: 1; transform: translate(-50%, 0); }
-    @media (max-width: 900px) { .app { max-width: 760px; } .layout { grid-template-columns: 1fr; } .sidebar { display: contents; } .add-panel { order: 0; } .list-panel { order: 1; } .backup-panel { order: 2; } .layout { gap: 14px; } }
+    /* When stacked, show the lists before the editor. The Add button jumps to the form. */
+    @media (max-width: 900px) {
+      .app { max-width: 760px; }
+      .layout { grid-template-columns: 1fr; gap: 14px; }
+      .sidebar { display: contents; }
+      .list-panel { order: 0; min-height: 0; }
+      .add-panel { order: 1; }
+      .backup-panel { order: 2; }
+      .empty { padding: 30px 10px 24px; }
+    }
     @media (max-width: 540px) { .app { padding: 20px 13px 38px; } .topbar { gap: 8px; margin-bottom: 21px; } .brand { margin-bottom: 16px; } h1 { font-size: 25px; } .subtitle { font-size: 12px; } .local-badge { font-size: 0; padding: 9px; } .local-badge .dot { width: 9px; height: 9px; } .stats { gap: 7px; margin-bottom: 14px; } .stat { padding: 11px 10px; } .stat-count { font-size: 24px; } .stat-label { font-size: 10.5px; } .stat-icon { display: none; } .panel { padding: 17px; border-radius: 15px; } .list-panel { padding: 18px 13px 13px; } .list-heading { flex-wrap: wrap; } .filters { gap: 11px; } .filter-selects { width: 100%; } .filter-selects select { flex: 1; max-width: none; } .tab { padding-inline: 13px; } .todo { gap: 9px; } .todo-actions { gap: 1px; } .icon-button { width: 30px; } }
     /* Mobile Safari: date inputs have a native minimum width. Stack the fields
        rather than allowing them to overlap. 16px controls also avoid iOS focus zoom. */
@@ -141,6 +152,11 @@
       input[type="text"], input[type="search"], input[type="date"], textarea, select { font-size: 16px; min-width: 0; max-width: 100%; }
       .form-actions { margin-top: 14px; }
       .filter-selects select { font-size: 16px; }
+      .list-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 8px; margin-bottom: 12px; }
+      .list-heading h2 { grid-column: 1; grid-row: 1; }
+      .list-heading-tools { display: contents; }
+      .list-create { grid-column: 2; grid-row: 1 / 3; align-self: center; padding-inline: 11px; }
+      .date-label { grid-column: 1; grid-row: 2; font-size: 11px; }
     }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; } }
   </style>
@@ -205,7 +221,13 @@
       </div>
 
       <section class="panel list-panel" aria-labelledby="list-heading">
-        <div class="list-heading"><h2 id="list-heading">タスク一覧</h2><span class="date-label" id="today-label"></span></div>
+        <div class="list-heading">
+          <h2 id="list-heading">タスク一覧</h2>
+          <div class="list-heading-tools">
+            <span class="date-label" id="today-label"></span>
+            <button class="button-primary list-create" id="new-task-button" type="button">＋ 追加</button>
+          </div>
+        </div>
         <div class="search-row"><div class="search-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="search" type="search" placeholder="タスクを検索" aria-label="タスクを検索" /></div></div>
         <div class="filters">
           <div class="tabs" role="tablist" aria-label="表示するタスク">
@@ -320,6 +342,7 @@
       document.querySelector('[data-filter="active"]').textContent = bucket ? '未達成' : '未完了';
       document.querySelector('[data-filter="done"]').textContent = bucket ? '達成' : '完了';
       $('list-heading').textContent = bucket ? 'やりたいこと一覧' : 'タスク一覧';
+      $('new-task-button').setAttribute('aria-label', bucket ? 'やりたいことを追加' : '新しいタスクを追加');
       $('due-label').textContent = bucket ? '目標日（任意）' : '期限';
       $('note-label').textContent = bucket ? 'やりたい理由・メモ（任意）' : 'メモ（任意）';
       $('priority-field').classList.toggle('hidden', bucket);
@@ -386,7 +409,7 @@
       }
       $('list-count').textContent = `${visible.length} 件を表示`;
       $('empty-state').classList.toggle('hidden', visible.length !== 0);
-      if (!current.length) { $('empty-heading').textContent = bucket ? 'やりたいことはまだありません' : 'まだタスクがありません'; $('empty-message').textContent = bucket ? '思い浮かんだ夢を1件登録してみましょう。' : 'まずはタスクを1件追加してみましょう。'; }
+      if (!current.length) { $('empty-heading').textContent = bucket ? 'やりたいことはまだありません' : 'まだタスクがありません'; $('empty-message').textContent = bucket ? '「＋ 追加」からやりたいことを登録しましょう。' : '「＋ 追加」からタスクを登録しましょう。'; }
       else if (!visible.length) { $('empty-heading').textContent = '該当する項目はありません'; $('empty-message').textContent='検索条件や表示フィルターを変更してください。'; }
     }
     function startEdit(task) {
@@ -407,9 +430,24 @@
       const now = new Date().toISOString();
       const record = { id:old?.id || uid(), kind:old?.kind || currentKind, title:title.slice(0,160), due:$('due').value, priority:currentKind === 'bucket' ? 'normal' : $('priority').value, category:$('category').value.trim().slice(0,40), note:$('note').value.trim().slice(0,1500), done:old?.done || false, achievedAt:old?.achievedAt || '', createdAt:old?.createdAt || now, updatedAt:now };
       $('save-button').disabled = true;
-      try { await requestTx('readwrite',s => s.put(record)); cancelEdit(); await refresh(); toast(old ? '更新しました' : '追加しました'); }
+      try {
+        await requestTx('readwrite',s => s.put(record));
+        cancelEdit();
+        await refresh();
+        toast(old ? '更新しました' : '追加しました');
+        if (window.matchMedia('(max-width: 900px)').matches) {
+          if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+          document.querySelector('.list-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
       catch(e) { reportError(e); }
       finally { $('save-button').disabled = false; }
+    });
+    // From the list, jump to the editor even when the editor is below the list on mobile.
+    $('new-task-button').addEventListener('click', () => {
+      cancelEdit();
+      document.querySelector('.add-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Do not automatically open the on-screen keyboard while scrolling.
     });
     $('cancel-edit').addEventListener('click',cancelEdit);
     document.querySelectorAll('.mode-button').forEach(button => button.addEventListener('click', () => setMode(button.dataset.kind))); 
