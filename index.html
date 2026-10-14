@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#f6f8fb" />
   <meta name="description" content="ログイン不要、ブラウザだけで使えるシンプルなTodoアプリ。" />
-  <title>My Todo — シンプルなタスク管理</title>
+  <title>My Todo — Todo & Bucket List</title>
   <style>
     :root {
       color-scheme: light;
@@ -35,6 +35,10 @@
     .subtitle { margin: 8px 0 0; color: var(--muted); font-size: 14px; }
     .local-badge { margin-top: 4px; white-space: nowrap; display: flex; align-items: center; gap: 7px; border: 1px solid #dce8e2; background: #f2faf5; color: #2a7451; padding: 9px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; }
     .local-badge .dot { background: #38a66b; width: 7px; height: 7px; border-radius: 50%; }
+    .mode-switch { display: inline-flex; flex-wrap: wrap; gap: 5px; background: #e9eef6; padding: 5px; border-radius: 14px; margin-bottom: 20px; }
+    .mode-button { background: transparent; color: #55657e; border: 0; border-radius: 10px; padding: 10px 19px; font-size: 14px; font-weight: 750; min-height: 43px; }
+    .mode-button[aria-selected="true"] { color: #2056b7; background: #fff; box-shadow: 0 3px 12px rgba(31,48,81,.11); }
+    .mode-description { font-size: 12px; color: var(--muted); margin: -9px 0 16px; }
     .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 22px; }
     .stat { background: var(--surface); border: 1px solid var(--line); border-radius: 15px; padding: 15px 19px; box-shadow: var(--shadow); display: flex; justify-content: space-between; align-items: center; min-width: 0; }
     .stat-label { color: var(--muted); font-size: 12px; font-weight: 600; }
@@ -122,6 +126,9 @@
       .local-badge .dot { flex-shrink: 0; width: 7px; height: 7px; }
       h1 { font-size: clamp(20px, 5.2vw, 23px); line-height: 1.3; }
       .subtitle { margin-top: 4px; }
+      .mode-switch { display: grid; grid-template-columns: 1fr 1fr; width: 100%; gap: 4px; margin-bottom: 12px; }
+      .mode-button { padding: 9px 8px; font-size: 14px; }
+      .mode-description { margin: -3px 0 13px; }
       .stats { margin-bottom: 12px; gap: 6px; }
       .stat { padding: 10px 8px; border-radius: 12px; }
       .stat-count { font-size: 21px; }
@@ -143,16 +150,22 @@
     <header class="topbar">
       <div>
         <div class="brand"><span class="brand-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="m7.5 12 3 3 6-6"/></svg></span> My Todo</div>
-        <h1>今日やることを、すっきり。</h1>
-        <p class="subtitle">思いついたら追加。終わったらチェック。</p>
+        <h1 id="hero-title">今日やることを、すっきり。</h1>
+        <p class="subtitle" id="hero-subtitle">思いついたら追加。終わったらチェック。</p>
       </div>
       <div class="local-badge" title="データはこのブラウザにだけ保存されます"><span class="dot"></span> この端末内に保存</div>
     </header>
 
-    <section class="stats" aria-label="タスクの集計">
-      <div class="stat"><div><div class="stat-label">未完了</div><div class="stat-count" id="stat-active">0<small> 件</small></div></div><div class="stat-icon" aria-hidden="true">☰</div></div>
-      <div class="stat"><div><div class="stat-label">今日が期限</div><div class="stat-count" id="stat-today">0<small> 件</small></div></div><div class="stat-icon" aria-hidden="true">◷</div></div>
-      <div class="stat"><div><div class="stat-label">完了</div><div class="stat-count" id="stat-done">0<small> 件</small></div></div><div class="stat-icon" aria-hidden="true">✓</div></div>
+    <nav class="mode-switch" aria-label="リスト切り替え">
+      <button class="mode-button" type="button" data-kind="todo" aria-selected="true">✓ Todo</button>
+      <button class="mode-button" type="button" data-kind="bucket" aria-selected="false">☆ Bucket List</button>
+    </nav>
+    <p class="mode-description" id="mode-description">日々のやることを管理します。</p>
+
+    <section class="stats" aria-label="現在のリストの集計">
+      <div class="stat"><div><div class="stat-label" id="stat-active-label">未完了</div><div class="stat-count" id="stat-active">0<small> 件</small></div></div><div class="stat-icon" aria-hidden="true">☰</div></div>
+      <div class="stat"><div><div class="stat-label" id="stat-today-label">今日が期限</div><div class="stat-count" id="stat-today">0<small> 件</small></div></div><div class="stat-icon" aria-hidden="true">◷</div></div>
+      <div class="stat"><div><div class="stat-label" id="stat-done-label">完了</div><div class="stat-count" id="stat-done">0<small> 件</small></div></div><div class="stat-icon" aria-hidden="true">✓</div></div>
     </section>
 
     <main class="layout">
@@ -164,13 +177,13 @@
             <label class="field-label" for="title">タスク名 <span aria-hidden="true">*</span></label>
             <input type="text" id="title" name="title" placeholder="例：週末の買い物" maxlength="160" required autocomplete="off" />
             <div class="two-col">
-              <div><label class="field-label" for="due">期限</label><input type="date" id="due" name="due" /></div>
-              <div><label class="field-label" for="priority">優先度</label><select id="priority" name="priority"><option value="normal">ふつう</option><option value="high">高</option><option value="low">低</option></select></div>
+              <div><label class="field-label" for="due" id="due-label">期限</label><input type="date" id="due" name="due" /></div>
+              <div id="priority-field"><label class="field-label" for="priority">優先度</label><select id="priority" name="priority"><option value="normal">ふつう</option><option value="high">高</option><option value="low">低</option></select></div>
             </div>
             <label class="field-label" for="category">カテゴリ</label>
             <input id="category" name="category" type="text" list="category-suggestions" placeholder="例：プライベート" maxlength="40" autocomplete="off" />
             <datalist id="category-suggestions"><option value="仕事"></option><option value="家事"></option><option value="買い物"></option><option value="プライベート"></option></datalist>
-            <label class="field-label" for="note">メモ（任意）</label>
+            <label class="field-label" for="note" id="note-label">メモ（任意）</label>
             <textarea id="note" name="note" maxlength="1500" placeholder="補足があれば入力"></textarea>
             <div class="form-actions">
               <button class="button-primary" id="save-button" type="submit">＋ タスクを追加</button>
@@ -187,7 +200,7 @@
             <button class="button-outline" id="import-button" type="button">↑ 読み込み</button>
           </div>
           <input class="hidden" id="import-file" type="file" accept=".json,application/json" />
-          <p class="small-note">JSONファイルで保存・復元できます。読み込み時は既存タスクに統合します。PCとスマホの自動同期はありません。</p>
+          <p class="small-note">TodoとBucket ListをまとめてJSONで保存・復元できます。PCとスマホの自動同期はありません。</p>
         </section>
       </div>
 
@@ -207,7 +220,7 @@
         <footer class="list-footer"><span id="list-count">0 件を表示</span><button class="text-button" type="button" id="clear-done">完了したタスクを削除</button></footer>
       </section>
     </main>
-    <p class="footnote">My Todo · 保存先はこのブラウザのみ · ログイン・同期なし</p>
+    <p class="footnote">My Todo & Bucket List · 保存先はこのブラウザのみ · ログイン・同期なし</p>
   </div>
   <div id="toast" role="status" aria-live="polite"></div>
 
@@ -220,6 +233,7 @@
     let tasks = [];
     let editingId = null;
     let filter = 'active';
+    let currentKind = 'todo';
     let toastTimer;
     const $ = id => document.getElementById(id);
     const ICON_EDIT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L9 17l-4 1 1-4Z"/></svg>';
@@ -284,23 +298,58 @@
         priority: ['low','normal','high'].includes(raw.priority) ? raw.priority : 'normal',
         due,
         done: raw.done === true,
+        kind: raw.kind === 'bucket' ? 'bucket' : 'todo',
+        achievedAt: raw.kind === 'bucket' && raw.done === true ? (typeof raw.achievedAt === 'string' ? raw.achievedAt : '') : '',
         createdAt: iso(raw.createdAt),
         updatedAt: iso(raw.updatedAt)
       };
     }
+    function recordKind(task) { return task.kind === 'bucket' ? 'bucket' : 'todo'; }
+    function setMode(kind) {
+      if (kind === currentKind) return;
+      currentKind = kind;
+      filter = 'active';
+      $('search').value = '';
+      $('category-filter').value = '';
+      document.querySelectorAll('.mode-button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.kind === currentKind)));
+      document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.filter === filter)));
+      const bucket = kind === 'bucket';
+      $('hero-title').textContent = bucket ? 'やりたいことを、ひとつずつ。' : '今日やることを、すっきり。';
+      $('hero-subtitle').textContent = bucket ? 'いつか叶えたい夢を、忘れないうちに。' : '思いついたら追加。終わったらチェック。';
+      $('mode-description').textContent = bucket ? 'いつか叶えたいことを記録し、達成を楽しみましょう。' : '日々のやることを管理します。';
+      document.querySelector('[data-filter="active"]').textContent = bucket ? '未達成' : '未完了';
+      document.querySelector('[data-filter="done"]').textContent = bucket ? '達成' : '完了';
+      $('list-heading').textContent = bucket ? 'やりたいこと一覧' : 'タスク一覧';
+      $('due-label').textContent = bucket ? '目標日（任意）' : '期限';
+      $('note-label').textContent = bucket ? 'やりたい理由・メモ（任意）' : 'メモ（任意）';
+      $('priority-field').classList.toggle('hidden', bucket);
+      $('title').placeholder = bucket ? '例：オーロラを見に行く' : '例：週末の買い物';
+      $('category').placeholder = bucket ? '例：旅行・体験' : '例：プライベート';
+      $('search').placeholder = bucket ? 'やりたいことを検索' : 'タスクを検索';
+      $('note').placeholder = bucket ? '叶えたい理由やアイデアを記録' : '補足があれば入力';
+      $('clear-done').classList.toggle('hidden', bucket); // Keep achieved dreams as a record.
+      $('stat-active-label').textContent = bucket ? 'これから' : '未完了';
+      $('stat-today-label').textContent = bucket ? '達成済み' : '今日が期限';
+      $('stat-done-label').textContent = bucket ? '登録数' : '完了';
+      $('sort').options[0].textContent = bucket ? '目標日が近い順' : '期限が近い順';
+      cancelEdit();
+      render();
+    }
     function render() {
-      const active = tasks.filter(t => !t.done).length;
-      const completed = tasks.length - active;
+      const current = tasks.filter(t => recordKind(t) === currentKind);
+      const active = current.filter(t => !t.done).length;
+      const completed = current.length - active;
+      const bucket = currentKind === 'bucket';
       $('stat-active').innerHTML = `${active}<small> 件</small>`;
-      $('stat-done').innerHTML = `${completed}<small> 件</small>`;
-      $('stat-today').innerHTML = `${tasks.filter(t => !t.done && t.due === todayIso()).length}<small> 件</small>`;
+      $('stat-done').innerHTML = `${bucket ? current.length : completed}<small> 件</small>`;
+      $('stat-today').innerHTML = `${bucket ? completed : current.filter(t => !t.done && t.due === todayIso()).length}<small> 件</small>`;
       $('clear-done').disabled = completed === 0;
       const categoryValue = $('category-filter').value;
-      const categories = [...new Set(tasks.map(t => t.category).filter(Boolean))].sort((a,b) => a.localeCompare(b,'ja'));
+      const categories = [...new Set(current.map(t => t.category).filter(Boolean))].sort((a,b) => a.localeCompare(b,'ja'));
       $('category-filter').replaceChildren(new Option('全カテゴリ',''), ...categories.map(c => new Option(c,c)));
       if (categories.includes(categoryValue)) $('category-filter').value = categoryValue;
       const query = $('search').value.trim().toLocaleLowerCase('ja');
-      let visible = tasks.filter(t => {
+      let visible = current.filter(t => {
         if (filter === 'active' && t.done) return false;
         if (filter === 'done' && !t.done) return false;
         if ($('category-filter').value && t.category !== $('category-filter').value) return false;
@@ -318,36 +367,37 @@
       list.replaceChildren();
       for (const task of visible) {
         const li = document.createElement('li'); li.className = 'todo' + (task.done ? ' done' : '');
-        const check = document.createElement('input'); check.type = 'checkbox'; check.className = 'todo-check'; check.checked = task.done; check.setAttribute('aria-label', `「${task.title}」を${task.done ? '未完了' : '完了'}にする`);
-        check.addEventListener('change', async () => { check.disabled = true; try { await requestTx('readwrite', s => s.put({...task, done: check.checked, updatedAt: new Date().toISOString()})); await refresh(); } catch (e) { reportError(e); } });
+        const check = document.createElement('input'); check.type = 'checkbox'; check.className = 'todo-check'; check.checked = task.done; check.setAttribute('aria-label', `「${task.title}」を${task.done ? (bucket ? '未達成' : '未完了') : (bucket ? '達成' : '完了')}にする`);
+        check.addEventListener('change', async () => { check.disabled = true; try { const done = check.checked; await requestTx('readwrite', s => s.put({...task, done, achievedAt: bucket && done ? new Date().toISOString() : '', updatedAt: new Date().toISOString()})); await refresh(); } catch (e) { reportError(e); } });
         const content = document.createElement('div'); content.className = 'todo-content';
         const name = document.createElement('div'); name.className = 'todo-name'; name.textContent = task.title; content.append(name);
         if (task.note) { const note = document.createElement('div'); note.className = 'todo-note'; note.textContent = task.note; content.append(note); }
         const meta = document.createElement('div'); meta.className = 'todo-meta';
         if (task.category) meta.append(createChip(task.category));
-        if (task.priority === 'high') meta.append(createChip('優先度：高','urgent'));
-        if (task.priority === 'low') meta.append(createChip('優先度：低'));
-        if (task.due) meta.append(createChip(dateLabel(task.due), !task.done && task.due < todayIso() ? 'overdue' : !task.done && task.due === todayIso() ? 'today' : ''));
+        if (!bucket && task.priority === 'high') meta.append(createChip('優先度：高','urgent'));
+        if (!bucket && task.priority === 'low') meta.append(createChip('優先度：低'));
+        if (task.due) meta.append(createChip((bucket ? '目標 ' : '') + dateLabel(task.due), !task.done && task.due < todayIso() ? 'overdue' : !task.done && task.due === todayIso() ? 'today' : ''));
+        if (bucket && task.done && task.achievedAt) meta.append(createChip('達成 ' + new Date(task.achievedAt).toLocaleDateString('ja-JP')));
         if (meta.children.length) content.append(meta);
         const actions = document.createElement('div'); actions.className = 'todo-actions';
         const edit = document.createElement('button'); edit.type='button'; edit.className = 'icon-button'; edit.innerHTML = ICON_EDIT; edit.setAttribute('aria-label',`「${task.title}」を編集`); edit.title='編集'; edit.addEventListener('click', () => startEdit(task));
-        const remove = document.createElement('button'); remove.type='button'; remove.className = 'icon-button delete'; remove.innerHTML = ICON_TRASH; remove.setAttribute('aria-label',`「${task.title}」を削除`); remove.title='削除'; remove.addEventListener('click',async () => { if (!confirm(`「${task.title}」を削除しますか？`)) return; try { await requestTx('readwrite',s => s.delete(task.id)); if (editingId === task.id) cancelEdit(); await refresh(); toast('タスクを削除しました'); } catch(e) { reportError(e); } });
+        const remove = document.createElement('button'); remove.type='button'; remove.className = 'icon-button delete'; remove.innerHTML = ICON_TRASH; remove.setAttribute('aria-label',`「${task.title}」を削除`); remove.title='削除'; remove.addEventListener('click',async () => { if (!confirm(`「${task.title}」を削除しますか？`)) return; try { await requestTx('readwrite',s => s.delete(task.id)); if (editingId === task.id) cancelEdit(); await refresh(); toast(bucket ? 'やりたいことを削除しました' : 'タスクを削除しました'); } catch(e) { reportError(e); } });
         actions.append(edit,remove); li.append(check,content,actions); list.append(li);
       }
       $('list-count').textContent = `${visible.length} 件を表示`;
       $('empty-state').classList.toggle('hidden', visible.length !== 0);
-      if (!tasks.length) { $('empty-heading').textContent = 'まだタスクがありません'; $('empty-message').textContent='まずはタスクを1件追加してみましょう。'; }
-      else if (!visible.length) { $('empty-heading').textContent = '該当するタスクはありません'; $('empty-message').textContent='検索条件や表示フィルターを変更してください。'; }
+      if (!current.length) { $('empty-heading').textContent = bucket ? 'やりたいことはまだありません' : 'まだタスクがありません'; $('empty-message').textContent = bucket ? '思い浮かんだ夢を1件登録してみましょう。' : 'まずはタスクを1件追加してみましょう。'; }
+      else if (!visible.length) { $('empty-heading').textContent = '該当する項目はありません'; $('empty-message').textContent='検索条件や表示フィルターを変更してください。'; }
     }
     function startEdit(task) {
       editingId = task.id;
-      $('form-heading').textContent = 'タスクを編集'; $('form-caption').textContent = '内容を変更して保存できます。';
+      $('form-heading').textContent = currentKind === 'bucket' ? 'やりたいことを編集' : 'タスクを編集'; $('form-caption').textContent = '内容を変更して保存できます。';
       $('title').value = task.title; $('due').value = task.due; $('priority').value = task.priority; $('category').value = task.category; $('note').value = task.note;
       $('save-button').textContent = '変更を保存'; $('cancel-edit').classList.remove('hidden');
       document.querySelector('.add-panel').scrollIntoView({behavior:'smooth',block:'start'}); $('title').focus({preventScroll:true});
     }
     function cancelEdit() {
-      editingId = null; $('task-form').reset(); $('form-heading').textContent = '新しいタスク'; $('form-caption').textContent='やることを忘れないうちに登録しましょう。'; $('save-button').textContent='＋ タスクを追加'; $('cancel-edit').classList.add('hidden');
+      editingId = null; $('task-form').reset(); $('form-heading').textContent = currentKind === 'bucket' ? '新しいやりたいこと' : '新しいタスク'; $('form-caption').textContent = currentKind === 'bucket' ? 'いつか実現したいことを追加しましょう。' : 'やることを忘れないうちに登録しましょう。'; $('save-button').textContent = currentKind === 'bucket' ? '＋ やりたいことを追加' : '＋ タスクを追加'; $('cancel-edit').classList.add('hidden');
     }
     function reportError(e) { console.error(e); toast('保存に失敗しました。ブラウザの保存設定をご確認ください。'); }
     $('task-form').addEventListener('submit',async event => {
@@ -355,13 +405,14 @@
       const title = $('title').value.trim(); if (!title) return;
       const old = editingId ? tasks.find(t => t.id === editingId) : null;
       const now = new Date().toISOString();
-      const record = { id:old?.id || uid(), title:title.slice(0,160), due:$('due').value, priority:$('priority').value, category:$('category').value.trim().slice(0,40), note:$('note').value.trim().slice(0,1500), done:old?.done || false, createdAt:old?.createdAt || now, updatedAt:now };
+      const record = { id:old?.id || uid(), kind:old?.kind || currentKind, title:title.slice(0,160), due:$('due').value, priority:currentKind === 'bucket' ? 'normal' : $('priority').value, category:$('category').value.trim().slice(0,40), note:$('note').value.trim().slice(0,1500), done:old?.done || false, achievedAt:old?.achievedAt || '', createdAt:old?.createdAt || now, updatedAt:now };
       $('save-button').disabled = true;
-      try { await requestTx('readwrite',s => s.put(record)); cancelEdit(); await refresh(); toast(old ? 'タスクを更新しました' : 'タスクを追加しました'); }
+      try { await requestTx('readwrite',s => s.put(record)); cancelEdit(); await refresh(); toast(old ? '更新しました' : '追加しました'); }
       catch(e) { reportError(e); }
       finally { $('save-button').disabled = false; }
     });
     $('cancel-edit').addEventListener('click',cancelEdit);
+    document.querySelectorAll('.mode-button').forEach(button => button.addEventListener('click', () => setMode(button.dataset.kind))); 
     for (const tab of document.querySelectorAll('.tab')) tab.addEventListener('click', () => {
       filter = tab.dataset.filter;
       document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected',String(t === tab)));
@@ -369,7 +420,7 @@
     });
     ['search','sort','category-filter'].forEach(id => $(id).addEventListener(id === 'search' ? 'input':'change',render));
     $('clear-done').addEventListener('click',async () => {
-      const done = tasks.filter(t => t.done); if (!done.length) return;
+      const done = tasks.filter(t => recordKind(t) === 'todo' && t.done); if (!done.length) return;
       if (!confirm(`完了した ${done.length} 件のタスクを削除しますか？`)) return;
       try { await requestTx('readwrite',store => { done.forEach(task => store.delete(task.id)); }); if (editingId && done.some(t => t.id === editingId)) cancelEdit(); await refresh(); toast('完了したタスクを削除しました'); }
       catch(e) { reportError(e); }
@@ -377,7 +428,7 @@
     $('export-button').addEventListener('click',async () => {
       try {
         const data = await getAll();
-        const json = JSON.stringify({app:'my-todo',version:1,exportedAt:new Date().toISOString(),tasks:data},null,2);
+        const json = JSON.stringify({app:'my-todo',version:2,exportedAt:new Date().toISOString(),tasks:data},null,2);
         const url = URL.createObjectURL(new Blob([json],{type:'application/json;charset=utf-8'}));
         const anchor = document.createElement('a'); anchor.href=url; anchor.download=`my-todo-backup-${todayIso()}.json`; document.body.append(anchor); anchor.click(); anchor.remove(); setTimeout(() => URL.revokeObjectURL(url),1500);
         toast(`${data.length} 件のバックアップを作成しました`);
@@ -389,7 +440,7 @@
       try {
         if (file.size > 2 * 1024 * 1024) throw new Error('ファイルが大きすぎます（上限2MB）。');
         const data = JSON.parse(await file.text());
-        if (!data || data.app !== 'my-todo' || data.version !== 1 || !Array.isArray(data.tasks)) throw new Error('このアプリのバックアップファイルではありません。');
+        if (!data || data.app !== 'my-todo' || ![1,2].includes(data.version) || !Array.isArray(data.tasks)) throw new Error('このアプリのバックアップファイルではありません。');
         if (data.tasks.length > 10000) throw new Error('タスク数が多すぎます。');
         const valid = data.tasks.map(normalizeImported);
         if (valid.some(item => !item)) throw new Error('タスクの内容に問題があります。');
