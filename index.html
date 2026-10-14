@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#f6f8fb" />
   <meta name="description" content="ログイン不要、ブラウザだけで使えるシンプルなTodoアプリ。" />
-  <title>My Todo — Todo & Bucket List (v0.4)</title>
+  <title>My Todo — Todo & Bucket List (v0.5)</title>
   <style>
     :root {
       color-scheme: light;
@@ -92,7 +92,13 @@
     .todo-content { flex: 1; min-width: 0; }
     .todo-name { font-size: 14px; font-weight: 720; overflow-wrap: anywhere; }
     .todo.done .todo-name { color: #9ca7b5; text-decoration: line-through; }
-    .todo-note { font-size: 12px; color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 4px; }
+    .todo-note { font-size: 12px; color: var(--muted); margin-top: 4px; min-width: 0; }
+    .todo-note-body { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
+    /* Show a short excerpt by default; all original memo text remains in the DOM and IndexedDB. */
+    .todo-note.collapsible:not(.expanded) .todo-note-body { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+    .todo-note-toggle { border: 0; background: none; color: var(--primary); font-size: 12px; font-weight: 750; padding: 6px 2px 4px 0; cursor: pointer; }
+    .todo-note-toggle:hover { text-decoration: underline; }
+    .todo-note-toggle:focus-visible { outline: 3px solid #a9c6fb; outline-offset: 2px; border-radius: 3px; }
     .todo-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
     .chip { font-size: 10.5px; padding: 3px 7px; background: #f2f5f9; color: #5f7085; border-radius: 6px; }
     .chip.urgent { background: #fff0ec; color: #b1482c; }
@@ -394,7 +400,28 @@
         check.addEventListener('change', async () => { check.disabled = true; try { const done = check.checked; await requestTx('readwrite', s => s.put({...task, done, achievedAt: bucket && done ? new Date().toISOString() : '', updatedAt: new Date().toISOString()})); await refresh(); } catch (e) { reportError(e); } });
         const content = document.createElement('div'); content.className = 'todo-content';
         const name = document.createElement('div'); name.className = 'todo-name'; name.textContent = task.title; content.append(name);
-        if (task.note) { const note = document.createElement('div'); note.className = 'todo-note'; note.textContent = task.note; content.append(note); }
+        if (task.note) {
+          const note = document.createElement('div'); note.className = 'todo-note';
+          const body = document.createElement('div'); body.className = 'todo-note-body'; body.textContent = task.note;
+          note.append(body);
+          // Only longer memos get a toggle; short ones remain visible in full.
+          const needsCollapse = task.note.length > 80 || task.note.split(/\r?\n/).length > 2;
+          if (needsCollapse) {
+            note.classList.add('collapsible');
+            const toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'todo-note-toggle';
+            toggle.textContent = 'もっと見る';
+            toggle.setAttribute('aria-expanded', 'false');
+            toggle.setAttribute('aria-label', `「${task.title}」のメモをもっと見る`);
+            toggle.addEventListener('click', () => {
+              const expanded = note.classList.toggle('expanded');
+              toggle.textContent = expanded ? '折りたたむ' : 'もっと見る';
+              toggle.setAttribute('aria-expanded', String(expanded));
+              toggle.setAttribute('aria-label', `「${task.title}」のメモを${expanded ? '折りたたむ' : 'もっと見る'}`);
+            });
+            note.append(toggle);
+          }
+          content.append(note);
+        }
         const meta = document.createElement('div'); meta.className = 'todo-meta';
         if (task.category) meta.append(createChip(task.category));
         if (!bucket && task.priority === 'high') meta.append(createChip('優先度：高','urgent'));
